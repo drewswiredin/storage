@@ -39,6 +39,22 @@ namespace Storage.Net
       }
 
       /// <summary>
+      /// Connect to local emulator
+      /// </summary>
+      public static IAzureBlobStorage AzureAppendBlobStorageWithLocalEmulator(this IBlobStorageFactory factory)
+      {
+         var credential = new StorageSharedKeyCredential(
+            "devstoreaccount1",
+            "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==");
+
+         var client = new BlobServiceClient(
+            new Uri("http://127.0.0.1:10000/devstoreaccount1"),
+            credential);
+
+         return new AzureAppendBlobStorage(client, "devstoreaccount1", credential);
+      }
+
+      /// <summary>
       /// 
       /// </summary>
       public static IAzureBlobStorage AzureBlobStorageWithSharedKey(this IBlobStorageFactory factory,
@@ -56,6 +72,26 @@ namespace Storage.Net
          var client = new BlobServiceClient(serviceUri ?? GetServiceUri(accountName), credential);
 
          return new AzureBlobStorage(client, accountName, credential);
+      }
+
+      /// <summary>
+      /// 
+      /// </summary>
+      public static IAzureBlobStorage AzureAppendBlobStorageWithSharedKey(this IBlobStorageFactory factory,
+         string accountName,
+         string key,
+         Uri serviceUri = null)
+      {
+         if(accountName is null)
+            throw new ArgumentNullException(nameof(accountName));
+         if(key is null)
+            throw new ArgumentNullException(nameof(key));
+
+         var credential = new StorageSharedKeyCredential(accountName, key);
+
+         var client = new BlobServiceClient(serviceUri ?? GetServiceUri(accountName), credential);
+
+         return new AzureAppendBlobStorage(client, accountName, credential);
       }
 
       /// <summary>
@@ -122,6 +158,49 @@ namespace Storage.Net
       }
 
       /// <summary>
+      /// Create Azure Blob Storage with AAD authentication
+      /// </summary>
+      /// <param name="factory"></param>
+      /// <param name="accountName"></param>
+      /// <param name="tenantId"></param>
+      /// <param name="applicationId"></param>
+      /// <param name="applicationSecret"></param>
+      /// <param name="activeDirectoryAuthEndpoint"></param>
+      /// <returns></returns>
+      public static IAzureBlobStorage AzureAppendBlobStorageWithAzureAd(this IBlobStorageFactory factory,
+         string accountName,
+         string tenantId,
+         string applicationId,
+         string applicationSecret,
+         string activeDirectoryAuthEndpoint = "https://login.microsoftonline.com/")
+      {
+         if(accountName is null)
+            throw new ArgumentNullException(nameof(accountName));
+         if(tenantId is null)
+            throw new ArgumentNullException(nameof(tenantId));
+         if(applicationId is null)
+            throw new ArgumentNullException(nameof(applicationId));
+         if(applicationSecret is null)
+            throw new ArgumentNullException(nameof(applicationSecret));
+         if(activeDirectoryAuthEndpoint is null)
+            throw new ArgumentNullException(nameof(activeDirectoryAuthEndpoint));
+
+         // Create a token credential that can use our Azure Active
+         // Directory application to authenticate with Azure Storage
+         TokenCredential credential =
+             new ClientSecretCredential(
+                 tenantId,
+                 applicationId,
+                 applicationSecret,
+                 new TokenCredentialOptions() { AuthorityHost = new Uri(activeDirectoryAuthEndpoint) });
+
+         // Create a client that can authenticate using our token credential
+         var client = new BlobServiceClient(GetServiceUri(accountName), credential);
+
+         return new AzureAppendBlobStorage(client, accountName);
+      }
+
+      /// <summary>
       /// Create Azure Data Lake Gen 2 Storage with AAD authentication
       /// </summary>
       /// <param name="factory"></param>
@@ -179,6 +258,18 @@ namespace Storage.Net
       /// <summary>
       /// 
       /// </summary>
+      public static IAzureBlobStorage AzureAppendBlobStorageWithTokenCredential(this IBlobStorageFactory factory,
+         string accountName,
+         TokenCredential tokenCredential)
+      {
+         var client = new BlobServiceClient(GetServiceUri(accountName), tokenCredential);
+
+         return new AzureAppendBlobStorage(client, accountName);
+      }
+
+      /// <summary>
+      /// 
+      /// </summary>
       /// <param name="factory"></param>
       /// <param name="sas"></param>
       /// <returns></returns>
@@ -190,6 +281,22 @@ namespace Storage.Net
          var client = new BlobServiceClient(new Uri(sas));
 
          return new AzureBlobStorage(client, accountName, containerName: containerName);
+      }
+
+      /// <summary>
+      /// 
+      /// </summary>
+      /// <param name="factory"></param>
+      /// <param name="sas"></param>
+      /// <returns></returns>
+      public static IAzureBlobStorage AzureAppendBlobStorageWithSas(this IBlobStorageFactory factory,
+         string sas)
+      {
+         TryParseSasUrl(sas, out string accountName, out string containerName, out string sasQuery);
+
+         var client = new BlobServiceClient(new Uri(sas));
+
+         return new AzureAppendBlobStorage(client, accountName, containerName: containerName);
       }
 
       /// <summary>
@@ -210,7 +317,23 @@ namespace Storage.Net
          return new AzureBlobStorage(client, accountName);
       }
 
+      /// <summary>
+      /// Creates Azure Blob Storage with Managed Identity
+      /// </summary>
+      /// <param name="factory"></param>
+      /// <param name="accountName"></param>
+      /// <param name="clientId"></param>
+      /// <returns></returns>
+      public static IAzureBlobStorage AzureAppendBlobStorageWithMsi(this IBlobStorageFactory factory,
+         string accountName,
+         string clientId = null)
+      {
+         TokenCredential credential = new ManagedIdentityCredential(clientId, null);
 
+         var client = new BlobServiceClient(GetServiceUri(accountName), credential);
+
+         return new AzureAppendBlobStorage(client, accountName);
+      }
 
       /// <summary>
       /// Creates Azure Data Lake Gen 2 Storage with Managed Identity
